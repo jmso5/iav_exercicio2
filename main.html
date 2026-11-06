@@ -4,7 +4,6 @@
     <meta charset="utf-8">
     <title>Mundo 360º em A-Frame</title>
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
     <style>
       #sofa-hint {
         position: fixed;
@@ -35,95 +34,8 @@
       }
     </style>
     
-    <!-- SCRIPT DE BOUNDS (Limites do Jogador) -->
-    <script>
-      // Textura de estuque gerada localmente, sem imagens ou serviços externos.
-      let plasterImages;
-      AFRAME.registerComponent('plaster', {
-        schema: {repeat: {type: 'vec2', default: {x: 12, y: 5.5}}},
-        init: function () {
-          if (!plasterImages) {
-            const size = 128;
-            const height = new Float32Array(size * size);
-            let seed = 73;
-            for (let i = 0; i < height.length; i++) {
-              seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-              height[i] = seed / 4294967296;
-            }
-            const color = document.createElement('canvas');
-            const normal = document.createElement('canvas');
-            color.width = color.height = normal.width = normal.height = size;
-            const colorContext = color.getContext('2d');
-            const normalContext = normal.getContext('2d');
-            const colorData = colorContext.createImageData(size, size);
-            const normalData = normalContext.createImageData(size, size);
-            const sample = (x, y) => height[((y + size) % size) * size + (x + size) % size];
-            for (let y = 0; y < size; y++) {
-              for (let x = 0; x < size; x++) {
-                const i = (y * size + x) * 4;
-                const shade = 249 + Math.round(sample(x, y) * 6);
-                colorData.data.set([shade, shade, shade, 255], i);
-                const nx = (sample(x - 1, y) - sample(x + 1, y)) * 0.3;
-                const ny = (sample(x, y - 1) - sample(x, y + 1)) * 0.3;
-                const length = Math.hypot(nx, ny, 1);
-                normalData.data.set([
-                  Math.round((nx / length + 1) * 127.5),
-                  Math.round((ny / length + 1) * 127.5),
-                  Math.round((1 / length + 1) * 127.5), 255
-                ], i);
-              }
-            }
-            colorContext.putImageData(colorData, 0, 0);
-            normalContext.putImageData(normalData, 0, 0);
-            plasterImages = {color, normal};
-          }
-          this.colorMap = new THREE.CanvasTexture(plasterImages.color);
-          this.colorMap.colorSpace = THREE.SRGBColorSpace;
-          this.normalMap = new THREE.CanvasTexture(plasterImages.normal);
-          for (const texture of [this.colorMap, this.normalMap]) {
-            texture.wrapS = texture.wrapT = THREE.RepeatWrapping;
-            texture.repeat.set(this.data.repeat.x, this.data.repeat.y);
-          }
-          this.applyMaterial = () => {
-            const mesh = this.el.getObject3D('mesh');
-            if (!mesh) return;
-            mesh.material.map = this.colorMap;
-            mesh.material.normalMap = this.normalMap;
-            mesh.material.normalScale.set(0.22, 0.22);
-            mesh.material.needsUpdate = true;
-          };
-          this.el.addEventListener('object3dset', this.applyMaterial);
-          this.el.addEventListener('materialtextureloaded', this.applyMaterial);
-          this.applyMaterial();
-        },
-        remove: function () {
-          this.el.removeEventListener('object3dset', this.applyMaterial);
-          this.el.removeEventListener('materialtextureloaded', this.applyMaterial);
-          this.colorMap.dispose();
-          this.normalMap.dispose();
-        }
-      });
-
-      AFRAME.registerComponent('furniture-collider', {
-        init: function () {
-          this.box = null;
-          this.updateBounds = () => {
-            const mesh = this.el.getObject3D('mesh');
-            if (!mesh) {
-              return;
-            }
-            mesh.updateWorldMatrix(true, true);
-            this.box = new THREE.Box3().setFromObject(mesh);
-          };
-          this.el.addEventListener('model-loaded', this.updateBounds);
-          this.updateBounds();
-        },
-        remove: function () {
-          this.el.removeEventListener('model-loaded', this.updateBounds);
-        }
-      });
-
-    </script>
+    <script src="js/plaster.js"></script>
+    <script src="js/furniture-collider.js"></script>
     <script src="js/player-controls.js"></script>
     <script src="js/sofa-interaction.js"></script>
     <script src="js/tv-menu.js"></script>
@@ -138,9 +50,8 @@
 
       
       
-      <!-- 1. Pré-carregar a imagem 360º nos assets -->
+      <!-- Modelos da sala e player de vídeo partilhado pela TV. -->
       <a-assets>
-        <!-- Substitui "qwantani_dusk.jpg" pelo nome do teu ficheiro 360º -->
         <a-asset-item id="floor" src="assets/wooden_floor.glb"> </a-asset-item>
         <a-asset-item id="sofa" src="assets/sofa_web.glb"></a-asset-item>
         <a-asset-item id="tv-table" src="assets/wooden_tv_tablemedia_center_pbr.glb"></a-asset-item>
@@ -244,11 +155,10 @@
       </a-entity>
 
 
-      <!-- Tapete na zona de estar; a sua espessura permite caminhar por cima. -->
+      <!-- Tapete decorativo, sem collider para permitir a passagem. -->
       <a-entity
         gltf-model="#carpet"
         shadow="cast: false; receive: true"
-        furniture-collider
         position="8 0.04 -11.9"
         rotation="0 90 0"
         scale="6.5 1 10">
@@ -297,28 +207,28 @@
         scale="2 2 2">
       </a-entity>
 
-      <!-- Sala encurtada: X de 0 a 20, deixando passagem atrás do sofá. -->
+      <!-- Sala: parede traseira em X = 17, deixando passagem atrás do sofá. -->
       <!-- Paredes creme, com estuque mate e relevo subtil. -->
       <a-plane position="10 5.5 -23.8" width="20" height="11"
         material="color: #eee5d4; roughness: 0.92; metalness: 0" plaster="repeat: 10 5.5"
-        shadow="cast: false; receive: true" static-body></a-plane>
+        shadow="cast: false; receive: true"></a-plane>
 
       <a-plane position="10 5.5 0" rotation="0 180 0" width="20" height="11"
         material="color: #eee5d4; roughness: 0.92; metalness: 0" plaster="repeat: 10 5.5"
-        shadow="cast: false; receive: true" static-body></a-plane>
+        shadow="cast: false; receive: true"></a-plane>
 
       <a-plane position="0 5.5 -11.9" rotation="0 90 0" width="23.8" height="11"
         material="color: #eee5d4; roughness: 0.92; metalness: 0" plaster="repeat: 11.9 5.5"
-        shadow="cast: false; receive: true" static-body></a-plane>
+        shadow="cast: false; receive: true"></a-plane>
         
       <a-plane position="17 5.5 -11.9" rotation="0 -90 0" width="23.8" height="11"
         material="color: #eee5d4; roughness: 0.92; metalness: 0" plaster="repeat: 11.9 5.5"
-        shadow="cast: false; receive: true" static-body></a-plane>
+        shadow="cast: false; receive: true"></a-plane>
      
 
       <!-- Teto -->
       <a-plane position="10 11 -11.9" rotation="90 0 0" width="20" height="23.8"
-        material="color: #faf6ee; roughness: 1; metalness: 0" static-body></a-plane>
+        material="color: #faf6ee; roughness: 1; metalness: 0"></a-plane>
 
       
 
@@ -352,7 +262,7 @@
       <!-- Limites de visão ajustados à sala para melhorar a precisão de profundidade. -->
       <!-- O rig desloca o jogador e os comandos sem contrariar o tracking VR. -->
       <a-entity id="player-rig" position="8 0 -11.9" player-controls>
-        <a-camera id="player-camera" position="0 5.6 0" rotation="0 90 0" near="0.1" far="80"
+        <a-camera id="player-camera" rotation="0 90 0" near="0.1" far="80"
           wasd-controls="enabled: false" cursor="rayOrigin: mouse"
           raycaster="objects: .clickable; far: 20"></a-camera>
         <a-entity id="left-controller" laser-controls="hand: left"

@@ -77,12 +77,7 @@ AFRAME.registerComponent('tv-menu', {
     });
 
     // Superfície usada apenas para fotografias.
-    this.preview = document.createElement('a-image');
-    this.preview.setAttribute('position', '0 0.15 0.04');
-    this.preview.setAttribute('width', '7.6');
-    this.preview.setAttribute('height', '3.8');
-    this.preview.setAttribute('visible', false);
-    this.el.appendChild(this.preview);
+    this.preview = this.createPreview();
 
     this.caption = document.createElement('a-text');
     this.caption.setAttribute('position', '0 -2 0.05');
@@ -104,6 +99,18 @@ AFRAME.registerComponent('tv-menu', {
     this.el.appendChild(this.videoPlane);
 
     this.render();
+  },
+
+  // Configuração da superfície de fotografias, centralizada num único método.
+  createPreview: function (source) {
+    const preview = document.createElement('a-image');
+    preview.setAttribute('position', '0 0.15 0.04');
+    preview.setAttribute('width', '7.6');
+    preview.setAttribute('height', '3.8');
+    preview.setAttribute('visible', !!source);
+    if (source) preview.setAttribute('src', source);
+    this.el.appendChild(preview);
+    return preview;
   },
 
   // Determina se cada ação está disponível.
@@ -192,14 +199,8 @@ AFRAME.registerComponent('tv-menu', {
       // Remover a superfície anterior e o respetivo material.
       this.preview.remove();
 
-      // Cada fotografia recebe uma superfície nova.
-      this.preview = document.createElement('a-image');
-      this.preview.setAttribute('position', '0 0.15 0.04');
-      this.preview.setAttribute('width', '7.6');
-      this.preview.setAttribute('height', '3.8');
-      this.preview.setAttribute('src', item.source);
-
-      this.el.appendChild(this.preview);
+      // Uma superfície nova evita reutilizar a textura da fotografia anterior.
+      this.preview = this.createPreview(item.source);
       return;
     }
 

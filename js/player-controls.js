@@ -1,61 +1,60 @@
-/* global AFRAME, THREE */
-// Move o rig, nunca a pose da cabeça: o tracking WebXR continua livre.
+// Componente de movimento do jogador, incluindo colisão com móveis e limites da sala.
 AFRAME.registerComponent('player-controls', {
+  // Limites da sala, em unidades da cena.
   schema: {
-    minX: {default: 0}, maxX: {default: 17},
-    minZ: {default: -23.8}, maxZ: {default: 0},
-    radius: {default: 0.4}, stepHeight: {default: 0.15},
+    minX: {default: 0}, maxX: {default: 17}, minZ: {default: -23.8}, maxZ: {default: 0}, // Limites da sala
+    radius: {default: 0.4}, // Raio do jogador para colisão com móveis.
+    stepHeight: {default: 0.15}, // Altura máxima de altura que o jogador pode subir (para o tapete)
     eyeHeight: {default: 5.6}, speed: {default: 8},
-    // Os móveis existentes têm aproximadamente 3,3 vezes a escala real.
-    vrScale: {default: 3.3}
+    vrScale: {default: 3.3} // Os móveis existentes têm aproximadamente 3,3 vezes a escala real.
   },
 
-  init: function () {
-    this.camera = this.el.querySelector('#player-camera');
-    this.keys = new Set();
-    this.stick = {x: 0, y: 0};
-    this.seated = false;
-    this.inVR = false;
-    this.turnReady = true;
-    this.head = new THREE.Vector3();
-    this.forward = new THREE.Vector3();
-    this.right = new THREE.Vector3();
-    this.previous = null;
+  init: function () { 
+    this.camera = this.el.querySelector('#player-camera'); // Procura a câmera dentro do rig do jogador.
+    this.keys = new Set(); // Conjunto de teclas atualmente pressionadas.
+    this.seated = false; // Se o jogador está sentado virtualmente (bloqueia o movimento).
+    this.inVR = false; // Se o jogador está em modo VR
+
+    //Vetores de coordenadas para cálculos de movimento e colisão
+    this.head = new THREE.Vector3(); 
+    this.forward = new THREE.Vector3(); 
+    this.right = new THREE.Vector3(); 
+    this.previous = null; // Posição anterior da cabeça para detectar colisões.
+    
+    // Eventos de teclado para o movimento no desktop.
     this.onKeyDown = event => {
-      if (!event.target.closest?.('input, textarea, button, [contenteditable]')) this.keys.add(event.code);
+      if (!event.target.closest(
+        'input, textarea, button, [contenteditable]'
+      )) {
+        this.keys.add(event.code);
+      }
     };
-    this.onKeyUp = event => this.keys.delete(event.code);
-    this.clearInput = () => { this.keys.clear(); this.stick.x = this.stick.y = 0; };
-    this.onStick = event => { this.stick.x = event.detail.x; this.stick.y = event.detail.y; };
-    this.onDisconnect = () => { this.stick.x = this.stick.y = 0; this.turnReady = true; };
-    this.onTurn = event => {
-      if (Math.abs(event.detail.x) < 0.3) this.turnReady = true;
-      if (!this.inVR || !this.turnReady || Math.abs(event.detail.x) < 0.7) return;
-      this.rotateAroundHead(-Math.sign(event.detail.x) * Math.PI / 6);
-      this.turnReady = false;
-    };
-    window.addEventListener('keydown', this.onKeyDown);
+
+    this.onKeyUp = event => this.keys.delete(event.code); // Remove a tecla do conjunto quando solta.
+    this.clearInput = () => this.keys.clear(); // Limpa as teclas de movimento.
+
+    // Adiciona os ouvintes de eventos para teclado e perda de foco da janela.
+    window.addEventListener('keydown', this.onKeyDown); 
     window.addEventListener('keyup', this.onKeyUp);
-    window.addEventListener('blur', this.clearInput);
-    this.left = this.el.querySelector('#left-controller');
-    this.rightController = this.el.querySelector('#right-controller');
-    this.left.addEventListener('thumbstickmoved', this.onStick);
-    this.rightController.addEventListener('thumbstickmoved', this.onTurn);
-    this.left.addEventListener('controllerdisconnected', this.onDisconnect);
-    this.rightController.addEventListener('controllerdisconnected', this.onDisconnect);
+    window.addEventListener('blur', this.clearInput); // Se a janela perder o foco evita que o jogader fique preso com uma tecla pressionada.
+
+
   },
 
+  // Obtém a posição da cabeça do jogador no mundo, para cálculos de colisão e movimento.
   getHeadPosition: function (target) {
     this.camera.object3D.updateWorldMatrix(true, false);
     return this.camera.object3D.getWorldPosition(target);
   },
 
+  // Obtém a direção para a frente da câmera do jogador, para determinar a direção do movimento.
   getForward: function (target) {
     const camera = this.camera.getObject3D('camera');
     camera.updateWorldMatrix(true, false);
     return camera.getWorldDirection(target);
   },
 
+  // Gira o rig do jogador em torno da posição da cabeça para alinhar a vista com os objetos
   rotateAroundHead: function (angle) {
     const before = this.getHeadPosition(new THREE.Vector3());
     this.el.object3D.rotation.y += angle;
@@ -63,7 +62,7 @@ AFRAME.registerComponent('player-controls', {
     this.el.object3D.position.add(before.sub(after));
   },
 
-  // Alinhar a vista com a TV sem alterar a rotação física do headset.
+  // Quando o jogador senta no sofá, reposiciona o rig do jogador para que a cabeça fique na posição correta.
   placeHead: function (position, target) {
     const direction = target.clone().sub(position);
     const forward = this.getForward(new THREE.Vector3());
@@ -76,15 +75,18 @@ AFRAME.registerComponent('player-controls', {
     this.clearInput();
   },
 
+  // Função para mudar o estado do jogador entre VR e desktop, ajustando a escala, posição e controles de acordo com o modo.
   syncMode: function () {
     // O botão do A-Frame também ativa "vr-mode" no fullscreen sem headset.
-    // A escala e os comandos VR só devem mudar numa sessão XR imersiva real.
-    const xr = this.el.sceneEl.renderer.xr;
-    const inVR = this.el.sceneEl.is('vr-mode') && xr.isPresenting === true;
-    if (inVR === this.inVR) return;
-    // Levantar antes de mudar de modo evita manter um offset de assento em VR.
-    this.el.sceneEl.emit('leave-seat', {}, false);
-    this.clearInput();
+
+    const xr = this.el.sceneEl.renderer.xr; // Acesso ao sistema de XR do Three.js para verificar se o headset está presente.
+    const inVR = this.el.sceneEl.is('vr-mode') && xr.isPresenting === true; // Verifica se o jogador está em modo VR e se o headset está ativo.
+    if (inVR === this.inVR) return; // Se o estado não mudou, não faz nada.
+    
+    this.el.sceneEl.emit('leave-seat', {}, false); // Sai do assento virtual se o jogador estiver sentado ao mudar de modo.
+    this.clearInput(); // Limpa as teclas de movimento ao mudar de modo.
+
+    // Ajusta a escala, rotação e controles do jogador dependendo se está em VR ou desktop.
     if (inVR) {
       this.desktopRotation = this.el.object3D.rotation.clone();
       this.el.object3D.scale.setScalar(this.data.vrScale);
@@ -99,6 +101,7 @@ AFRAME.registerComponent('player-controls', {
       this.camera.components.cursor.play();
       this.camera.setAttribute('raycaster', 'enabled', true);
     }
+    // Ajusta a posição vertical do rig do jogador para que a cabeça fique na altura correta
     this.el.object3D.position.y = 0;
     this.inVR = inVR;
     this.previous = null;
@@ -108,24 +111,22 @@ AFRAME.registerComponent('player-controls', {
     if (!this.camera.getObject3D('camera')) return;
     this.syncMode();
     if (this.seated) return;
-    if (!this.inVR) this.camera.object3D.position.y = this.data.eyeHeight;
-    this.getForward(this.forward);
-    this.forward.y = 0;
-    this.forward.normalize();
-    this.right.set(-this.forward.z, 0, this.forward.x);
-    let x = 0;
-    let z = 0;
-    if (this.inVR) {
-      x = Math.abs(this.stick.x) > 0.15 ? this.stick.x : 0;
-      z = Math.abs(this.stick.y) > 0.15 ? -this.stick.y : 0;
-    } else {
-      x = Number(this.keys.has('KeyD') || this.keys.has('ArrowRight')) - Number(this.keys.has('KeyA') || this.keys.has('ArrowLeft'));
-      z = Number(this.keys.has('KeyW') || this.keys.has('ArrowUp')) - Number(this.keys.has('KeyS') || this.keys.has('ArrowDown'));
+    // Em VR, o tracking do headset acompanha os movimentos físicos.
+    // O movimento pelo teclado só está disponível no desktop.
+    if (!this.inVR) {
+      this.camera.object3D.position.y = this.data.eyeHeight;
+      this.getForward(this.forward);
+      this.forward.y = 0;
+      this.forward.normalize();
+      this.right.set(-this.forward.z, 0, this.forward.x);
+      const x = Number(this.keys.has('KeyD') || this.keys.has('ArrowRight')) - Number(this.keys.has('KeyA') || this.keys.has('ArrowLeft'));
+      const z = Number(this.keys.has('KeyW') || this.keys.has('ArrowUp')) - Number(this.keys.has('KeyS') || this.keys.has('ArrowDown'));
+      const length = Math.max(1, Math.hypot(x, z));
+      const distance = this.data.speed * Math.min(delta || 0, 50) / 1000;
+      this.el.object3D.position.addScaledVector(this.forward, z / length * distance);
+      this.el.object3D.position.addScaledVector(this.right, x / length * distance);
     }
-    const length = Math.max(1, Math.hypot(x, z));
-    const distance = this.data.speed * Math.min(delta || 0, 50) / 1000;
-    this.el.object3D.position.addScaledVector(this.forward, z / length * distance);
-    this.el.object3D.position.addScaledVector(this.right, x / length * distance);
+    // Verificar colisões também durante o movimento físico em VR.
     this.resolveCollisions();
   },
 
@@ -169,9 +170,5 @@ AFRAME.registerComponent('player-controls', {
     window.removeEventListener('keydown', this.onKeyDown);
     window.removeEventListener('keyup', this.onKeyUp);
     window.removeEventListener('blur', this.clearInput);
-    this.left.removeEventListener('thumbstickmoved', this.onStick);
-    this.rightController.removeEventListener('thumbstickmoved', this.onTurn);
-    this.left.removeEventListener('controllerdisconnected', this.onDisconnect);
-    this.rightController.removeEventListener('controllerdisconnected', this.onDisconnect);
   }
 });
