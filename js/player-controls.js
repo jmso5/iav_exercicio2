@@ -107,6 +107,7 @@ AFRAME.registerComponent('player-controls', {
     this.previous = null;
   },
 
+  
   tick: function (time, delta) {
     if (!this.camera.getObject3D('camera')) return;
     this.syncMode();
