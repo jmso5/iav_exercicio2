@@ -4,35 +4,6 @@
     <meta charset="utf-8">
     <title>Mundo 360º em A-Frame</title>
     <script src="https://aframe.io/releases/1.6.0/aframe.min.js"></script>
-    <style>
-      #sofa-hint {
-        position: fixed;
-        bottom: 24px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 9;
-        padding: 10px 16px;
-        border-radius: 8px;
-        background: #35291fe6;
-        color: #fff6e9;
-        font: 15px system-ui, sans-serif;
-        pointer-events: none;
-      }
-      #stand-up {
-        position: fixed;
-        bottom: 24px;
-        left: 50%;
-        transform: translateX(-50%);
-        z-index: 10;
-        padding: 12px 20px;
-        border: 1px solid #bca58b;
-        border-radius: 8px;
-        background: #35291f;
-        color: #fff6e9;
-        font: 16px system-ui, sans-serif;
-        cursor: pointer;
-      }
-    </style>
     
     <script src="js/plaster.js"></script>
     <script src="js/furniture-collider.js"></script>
@@ -44,8 +15,6 @@
   </head>
   
   <body>
-    <div id="sofa-hint" role="status" hidden></div>
-    <button id="stand-up" type="button" hidden>Levantar do sofá (E)</button>
     <a-scene shadow="type: pcfsoft" background="color: #513222">
 
       

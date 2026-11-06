@@ -27,6 +27,7 @@ AFRAME.registerComponent('tv-menu', {
       }
     ];
 
+    // Índice do item atualmente selecionado no menu
     this.selectedIndex = 0;
     this.view = 'menu';
     this.frames = [];
@@ -35,6 +36,7 @@ AFRAME.registerComponent('tv-menu', {
     this.grid = document.createElement('a-entity');
     this.el.appendChild(this.grid);
 
+    // Título do menu
     const title = document.createElement('a-text');
     title.setAttribute('value', 'Galeria');
     title.setAttribute('position', '0 1.85 0');
@@ -42,6 +44,7 @@ AFRAME.registerComponent('tv-menu', {
     title.setAttribute('width', '6');
     this.grid.appendChild(title);
 
+    // Cria as tumbnails e os seus molduras, posicionando-os em duas colunas.
     this.items.forEach((item, index) => {
       const card = document.createElement('a-entity');
 
@@ -50,7 +53,7 @@ AFRAME.registerComponent('tv-menu', {
 
       card.setAttribute('position', `${x} ${y} 0`);
 
-      // Retângulo atrás da imagem, usado como moldura.
+      // Retângulo atrás da imagem
       const frame = document.createElement('a-plane');
       frame.setAttribute('width', '3.32');
       frame.setAttribute('height', '1.37');
@@ -58,6 +61,7 @@ AFRAME.registerComponent('tv-menu', {
       card.appendChild(frame);
       this.frames.push(frame);
 
+      // thumbnail da fotografia ou do vídeo
       const thumbnail = document.createElement('a-image');
       thumbnail.setAttribute('src', item.thumbnail);
       thumbnail.setAttribute('position', '0 0 0.02');
@@ -65,6 +69,7 @@ AFRAME.registerComponent('tv-menu', {
       thumbnail.setAttribute('height', '1.25');
       card.appendChild(thumbnail);
 
+      // Título do item
       const label = document.createElement('a-text');
       label.setAttribute('value', item.title);
       label.setAttribute('position', '0 -0.8 0.03');
@@ -76,7 +81,7 @@ AFRAME.registerComponent('tv-menu', {
       this.grid.appendChild(card);
     });
 
-    // Superfície usada apenas para fotografias.
+    // Superfície de pré-visualização da fotografia
     this.preview = this.createPreview();
 
     this.caption = document.createElement('a-text');
@@ -101,7 +106,7 @@ AFRAME.registerComponent('tv-menu', {
     this.render();
   },
 
-  // Configuração da superfície de fotografias, centralizada num único método.
+  // Cria a superfície de pré-visualização da fotografia, que é atualizada quando o jogador seleciona uma fotografia no menu
   createPreview: function (source) {
     const preview = document.createElement('a-image');
     preview.setAttribute('position', '0 0.15 0.04');
@@ -113,7 +118,7 @@ AFRAME.registerComponent('tv-menu', {
     return preview;
   },
 
-  // Determina se cada ação está disponível.
+  // Determina se cada ação está disponível
   canUse: function (action) {
     const player = this.el.sceneEl
       .querySelector('#player-rig')
@@ -131,6 +136,7 @@ AFRAME.registerComponent('tv-menu', {
     return false;
   },
 
+  // Executa a ação selecionada atraves dos botoes na parede
   execute: function (action) {
     if (!this.canUse(action)) return;
 
@@ -150,6 +156,7 @@ AFRAME.registerComponent('tv-menu', {
     this.render();
   },
 
+  // Interrompe a reprodução do vídeo, se houver algum a ser reproduzido
   stopVideo: function () {
     // Ignorar erros de pedidos de reprodução entretanto cancelados.
     this.playRequest++;
@@ -163,6 +170,7 @@ AFRAME.registerComponent('tv-menu', {
     this.videoPlane.setAttribute('visible', false);
   },
 
+  // Fecha o menu da TV, retornando à visão do jogador
   close: function () {
     this.view = 'menu';
     this.render();
@@ -173,6 +181,7 @@ AFRAME.registerComponent('tv-menu', {
     this.stopVideo();
   },
 
+  // Atualiza a interface do menu da TV, mostrando o conteúdo selecionado ou o menu 
   render: function () {
     this.stopVideo();
     const inMenu = this.view === 'menu';
@@ -181,7 +190,7 @@ AFRAME.registerComponent('tv-menu', {
     this.preview.setAttribute('visible', false);
     this.caption.setAttribute('visible', !inMenu);
 
-    // Destacar a miniatura selecionada.
+    // Destacar a miniatura selecionada
     this.frames.forEach((frame, index) => {
       frame.setAttribute(
         'material',
@@ -196,37 +205,37 @@ AFRAME.registerComponent('tv-menu', {
     this.caption.setAttribute('value', item.title);
 
     if (item.type === 'image') {
-      // Remover a superfície anterior e o respetivo material.
+      // Remover a superfície anterior e o respetivo material
       this.preview.remove();
 
-      // Uma superfície nova evita reutilizar a textura da fotografia anterior.
+      // Uma superfície nova evita reutilizar a textura da fotografia anterior
       this.preview = this.createPreview(item.source);
       return;
     }
 
     if (item.type === 'video') {
-      // Procurar o player criado no HTML.
+      // Procurar o player criado no HTML
       const video = document.querySelector('#tv-player');
 
+      // Se não houver player ou se o elemento não for um vídeo, mostrar uma mensagem de erro
       if (!video || video.tagName !== 'VIDEO') {
         this.caption.setAttribute('value', 'Video nao encontrado');
         return;
       }
 
-      // Usar o caminho definido em this.items.
+      // Usar o caminho definido em this.items
       if (video.getAttribute('src') !== item.source) {
         video.setAttribute('src', item.source);
         video.load();
       }
 
       this.currentVideo = video;
-
-      // A superfície 3D mostra o conteúdo deste player.
-      this.videoPlane.setAttribute('src', '#tv-player');
+      this.videoPlane.setAttribute('src', '#tv-player'); 
       this.videoPlane.setAttribute('visible', true);
 
-      const request = this.playRequest;
+      const request = this.playRequest; // Ignorar erros de pedidos de reprodução entretanto cancelados
 
+      // Tentar reproduzir o vídeo
       video.play().catch(error => {
         if (request !== this.playRequest) return;
 

@@ -1,41 +1,47 @@
 AFRAME.registerComponent('sit-on-click', {
+
   schema: {
-    // Distância horizontal à superfície do sofá, em unidades da cena.
-    maxDistance: {default: 2.5},
-    hoverScale: {default: 1.05},
-    seatOffset: {type: 'vec3', default: {x: 0, y: 525, z: 30}}
+    maxDistance: {default: 2.5}, // Distância máxima para sentar-se no sofá 
+    hoverScale: {default: 1.05}, // Escala do sofá quando o cursor está sobre ele
+    seatOffset: {type: 'vec3', default: {x: 0, y: 525, z: 30}} // Posição da rig do jogador em relação ao sofá quando sentado
   },
 
   init: function () {
     this.rig = this.el.sceneEl.querySelector('#player-rig');
-    this.button = document.getElementById('stand-up');
-    this.hint = document.getElementById('sofa-hint');
-    this.pointers = new Set();
-    this.saved = null;
-    this.mesh = null;
-    this.factor = 1;
-    this.focused = false;
-    this.head = new THREE.Vector3();
+    this.pointers = new Set(); 
+    this.saved = null; // Posição e rotação salvas da rig do jogador antes de sentar-se
+    this.mesh = null; // Mesh do sofá
+    this.factor = 1; // Fator de escala do sofá (1 = normal, >1 = ampliado)
+    this.focused = false; // Indica se o cursor está sobre o sofá
+    this.head = new THREE.Vector3(); // Posição da cabeça do jogador
+
+    // Função para atualizar a mesh do sofá quando o modelo é carregado
     this.onModel = () => {
       this.mesh = this.el.getObject3D('mesh');
       this.baseScale = this.mesh.scale.clone();
     };
-    this.onEnter = event => this.pointers.add(event.detail.cursorEl || event.target);
-    this.onLeave = event => this.pointers.delete(event.detail.cursorEl || event.target);
-    this.onClick = event => this.sit(event.detail.cursorEl);
-    this.onStand = () => { this.stand(); this.pointers.clear(); };
+
+    this.onEnter = event => this.pointers.add(event.detail.cursorEl || event.target); // Adiciona o cursor à lista de ponteiros quando aponta para o sofá
+    this.onLeave = event => this.pointers.delete(event.detail.cursorEl || event.target);  // Remove o cursor da lista de ponteiros quando deixa de apontar para o sofá
+    this.onClick = event => this.sit(event.detail.cursorEl); // Sentar-se no sofá quando o jogador clica nele
+    this.onStand = () => { this.stand(); this.pointers.clear(); }; // Levanta-se do sofá e limpa a lista de ponteiros
+
     this.onKey = event => {
-      if (event.code === 'KeyE' && !event.repeat) this.stand();
-    };
-    this.onDisconnect = event => this.pointers.delete(event.target);
-    this.el.addEventListener('model-loaded', this.onModel);
-    this.el.addEventListener('mouseenter', this.onEnter);
-    this.el.addEventListener('mouseleave', this.onLeave);
-    this.el.addEventListener('click', this.onClick);
-    this.button.addEventListener('click', this.onStand);
+      if (event.code === 'KeyE' && !event.repeat) this.stand(); // Levanta-se do sofá quando o jogador pressiona a tecla "E"
+    }; 
+
+    this.onDisconnect = event => this.pointers.delete(event.target); // Remove o cursor da lista de ponteiros quando o controlador é desconectado
+    this.el.addEventListener('model-loaded', this.onModel); // Atualiza a mesh do sofá quando o modelo é carregado
+
+    // Faz o mesmo mas para o desktop
+    this.el.addEventListener('mouseenter', this.onEnter); 
+    this.el.addEventListener('mouseleave', this.onLeave); 
+    this.el.addEventListener('click', this.onClick); 
     window.addEventListener('keydown', this.onKey);
-    this.el.sceneEl.addEventListener('leave-seat', this.onStand);
-    this.controllers = Array.from(this.rig.querySelectorAll('[laser-controls]'));
+
+    this.el.sceneEl.addEventListener('leave-seat', this.onStand); // Levanta-se do sofá quando o jogador sai do assento
+    this.controllers = Array.from(this.rig.querySelectorAll('[laser-controls]'));  
+    
     for (const controller of this.controllers) {
       controller.addEventListener('gripdown', this.onStand);
       controller.addEventListener('controllerdisconnected', this.onDisconnect);
@@ -43,6 +49,7 @@ AFRAME.registerComponent('sit-on-click', {
     if (this.el.getObject3D('mesh')) this.onModel();
   },
 
+  // Verifica se o jogador está próximo o suficiente do sofá para sentar-se
   isNear: function () {
     const player = this.rig.components['player-controls'];
     const box = this.el.components['furniture-collider'].box;
@@ -53,30 +60,34 @@ AFRAME.registerComponent('sit-on-click', {
     return Math.hypot(this.head.x - x, this.head.z - z) <= this.data.maxDistance;
   },
 
+  // Atualiza a escala do sofá e o cursor do mouse a cada frame
   tick: function (time, delta) {
     if (!this.mesh) return;
     const near = !this.saved && this.isNear();
     this.focused = near && this.pointers.size > 0;
     const target = this.focused ? this.data.hoverScale : 1;
     this.factor = THREE.MathUtils.lerp(this.factor, target, 1 - Math.exp(-12 * (delta || 0) / 1000));
-    // Só o mesh visual aumenta: o collider e o assento mantêm as dimensões.
+    // Só o mesh visual aumenta, o collider e o assento mantêm as dimensões
     this.mesh.scale.copy(this.baseScale).multiplyScalar(this.factor);
     const canvas = this.el.sceneEl.canvas;
     if (canvas) canvas.style.cursor = this.focused ? 'pointer' : '';
-    this.hint.hidden = !near || this.rig.components['player-controls'].inVR;
-    this.hint.textContent = this.focused ? 'Clica no sofá para te sentares' : 'Aponta para o sofá para te sentares';
   },
 
+  // Faz o jogador sentar-se no sofá, salvando a posição e rotação atuais da rig do jogador
   sit: function (controller) {
-    // Revalidar no clique: um laser longo não permite sentar à distância.
-    if (this.saved || !this.mesh || !this.isNear()) return;
-    const player = this.rig.components['player-controls'];
-    this.mesh.scale.copy(this.baseScale);
-    this.factor = 1;
+  
+    if (this.saved || !this.mesh || !this.isNear()) return; // Se o jogador já estiver sentado, se a mesh do sofá não estiver carregada ou se o jogador não estiver próximo o suficiente, não faz nada
+    const player = this.rig.components['player-controls']; // Obtém o componente de controle do jogador
+    this.mesh.scale.copy(this.baseScale); // Restaura a escala original do sofá antes de sentar-se
+    this.factor = 1; // Restaura o fator de escala do sofá para 1 (normal)
+    
+    // Salva a posição e rotação atuais da rig do jogador antes de sentar-se
     this.saved = {
       position: this.rig.object3D.position.clone(),
       rotation: this.rig.object3D.rotation.clone()
     };
+
+    // Calcula a posição do assento do sofá em relação à rig do jogador e move a rig para essa posição, apontando para a tela da TV
     const offset = this.data.seatOffset;
     this.el.object3D.updateWorldMatrix(true, false);
     const seat = this.el.object3D.localToWorld(new THREE.Vector3(offset.x, offset.y, offset.z));
@@ -85,49 +96,45 @@ AFRAME.registerComponent('sit-on-click', {
     player.seated = true;
     player.placeHead(seat, target);
     this.pointers.clear();
-    this.hint.hidden = true;
-    this.button.hidden = player.inVR;
+
+    // Oculta a mensagem na tv e mostra o menu da TV quando o jogador se senta no sofá
     this.el.sceneEl.querySelector('#tv-message')?.setAttribute('visible', false);
     this.el.sceneEl.querySelector('#tv-menu')?.setAttribute('visible', true);
-    this.pulse(controller);
   },
 
-  pulse: function (controller) {
-    const session = this.el.sceneEl.renderer.xr.getSession();
-    const hand = controller && controller.getAttribute('laser-controls');
-    if (!session || !hand) return;
-    const source = Array.from(session.inputSources).find(source => source.handedness === hand.hand);
-    const actuator = source && source.gamepad && source.gamepad.hapticActuators && source.gamepad.hapticActuators[0];
-    if (actuator) Promise.resolve(actuator.pulse(0.35, 60)).catch(() => {});
-  },
 
+  // Faz o jogador levantar-se do sofá, restaurando a posição e rotação salvas da rig do jogador
   stand: function () {
     if (!this.saved) return;
-    const player = this.rig.components['player-controls'];
-    this.rig.object3D.position.copy(this.saved.position);
-    this.rig.object3D.rotation.copy(this.saved.rotation);
+    const player = this.rig.components['player-controls'];  // Obtém o componente de controle do jogador
+
+    // Restaura a posição da rig do jogador para a posição salva antes de sentar-se
+    this.rig.object3D.position.copy(this.saved.position); 
+    this.rig.object3D.rotation.copy(this.saved.rotation); 
     player.seated = false;
     player.previous = null;
     player.clearInput();
     this.saved = null;
     this.pointers.clear();
-    this.button.hidden = true;
+
+    // Mostra a mensagem na tv e fecha o menu da TV quando o jogador se levanta do sofá
     this.el.sceneEl.querySelector('#tv-message')?.setAttribute('visible', true);
     this.el.sceneEl.querySelector('#tv-menu')?.components['tv-menu']?.close();
   },
 
+  // Remove os event listeners e limpa a lista de ponteiros quando o componente é removido
   remove: function () {
     this.stand();
     if (this.mesh) this.mesh.scale.copy(this.baseScale);
     if (this.el.sceneEl.canvas) this.el.sceneEl.canvas.style.cursor = '';
-    this.hint.hidden = true;
+
     this.el.removeEventListener('model-loaded', this.onModel);
     this.el.removeEventListener('mouseenter', this.onEnter);
     this.el.removeEventListener('mouseleave', this.onLeave);
     this.el.removeEventListener('click', this.onClick);
-    this.button.removeEventListener('click', this.onStand);
     window.removeEventListener('keydown', this.onKey);
     this.el.sceneEl.removeEventListener('leave-seat', this.onStand);
+
     for (const controller of this.controllers) {
       controller.removeEventListener('gripdown', this.onStand);
       controller.removeEventListener('controllerdisconnected', this.onDisconnect);

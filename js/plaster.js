@@ -1,4 +1,4 @@
-// Textura de estuque gerada localmente, sem imagens ou serviços externos.
+// Textura das paredes
 let plasterImages;
 AFRAME.registerComponent('plaster', {
   schema: {repeat: {type: 'vec2', default: {x: 12, y: 5.5}}},
