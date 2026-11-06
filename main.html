@@ -19,7 +19,7 @@
 
       
       
-      <!-- Modelos da sala e player de vídeo partilhado pela TV. -->
+      <!-- Modelos da sala e player de vídeo partilhado pela TV -->
       <a-assets>
         <a-asset-item id="floor" src="assets/wooden_floor.glb"> </a-asset-item>
         <a-asset-item id="sofa" src="assets/sofa_web.glb"></a-asset-item>
@@ -32,8 +32,8 @@
       </a-assets>
 
 
-      <!-- Chão -->
-      <!-- Base escura para esconder as pequenas aberturas entre as tábuas. -->
+      
+      <!-- Base escura para esconder as pequenas aberturas entre as tábuas e chão -->
       <a-plane position="10 -0.3 -11.9" rotation="-90 0 0" width="20" height="23.8"
         material="shader: flat; color: #513222" shadow="cast: false; receive: false"></a-plane>
       <a-entity
@@ -55,7 +55,7 @@
         scale="5 5 5">
       </a-entity>
 
-      <!-- Ecrã fixo na parede, centrado por cima do móvel -->
+      <!-- TV -->
       <a-entity id="tv-screen" position="0.12 6.5 -11.9" rotation="0 90 0">
         <a-box width="8.4" height="4.9" depth="0.16" color="#171717"></a-box>
         <a-plane
@@ -66,34 +66,39 @@
           shadow="cast: false; receive: false">
         </a-plane>
 
+        <!-- Menu de botões da TV, inicialmente invisível, ativado quando o jogador se senta no sofá -->
         <a-entity
           id="tv-menu"
           tv-menu
           position="0 0 0.22"
           visible="false">
 
+          <!-- Botão da esquerda e de cima, para ir para o vídeo anterior -->
            <a-entity
             position="-5 0.65 0"
             tv-button="action: previous; label: Anterior">
           </a-entity>
 
+          <!-- Botão da esquerda e de baixo, para voltar ao menu anterior -->
           <a-entity
             position="-5 -0.65 0"
             tv-button="action: back; label: Voltar">
           </a-entity>
 
-          <!-- Direita -->
+          <!-- Botão da direita e de cima, para ir para o próximo vídeo -->
           <a-entity
             position="5 0.65 0"
             tv-button="action: next; label: Seguinte">
           </a-entity>
 
+          <!-- Botão da direita e de baixo, para abrir o vídeo selecionado -->
           <a-entity
             position="5 -0.65 0"
             tv-button="action: open; label: Abrir">
           </a-entity>
         </a-entity>
 
+        <!-- Mensagem de instrução para o jogador, inicialmente visível, desaparece quando o jogador se senta no sofá -->
         <a-text
           id="tv-message"
           value="Chegue perto do sofa e clique para se sentar"
@@ -110,8 +115,7 @@
       </a-entity>
 
 
-
-      <!-- Sofá em frente ao móvel, virado para o ecrã -->
+      <!-- Sofá  -->
       <a-entity
         gltf-model="#sofa"
         class="clickable"
@@ -124,7 +128,7 @@
       </a-entity>
 
 
-      <!-- Tapete decorativo, sem collider para permitir a passagem. -->
+      <!-- Tapete -->
       <a-entity
         gltf-model="#carpet"
         shadow="cast: false; receive: true"
@@ -133,7 +137,7 @@
         scale="6.5 1 10">
       </a-entity>
 
-      <!-- Planta no canto, ao lado da zona da TV. -->
+      <!-- Planta -->
       <a-entity
         gltf-model="#plant"
         shadow="cast: true; receive: true"
@@ -143,7 +147,7 @@
         scale="6 6 6">
       </a-entity>
 
-      <!-- Candeeiro ao lado do sofá. -->
+      <!-- Candeeiro -->
       <a-entity
         gltf-model="#floor-lamp"
         shadow="cast: true; receive: true"
@@ -166,7 +170,7 @@
         </a-entity>
       </a-entity>
 
-      <!-- Estante junto à parede comprida, virada para o interior. -->
+      <!-- Estante  -->
       <a-entity
         gltf-model="#bookshelf"
         shadow="cast: true; receive: true"
@@ -176,8 +180,7 @@
         scale="2 2 2">
       </a-entity>
 
-      <!-- Sala: parede traseira em X = 17, deixando passagem atrás do sofá. -->
-      <!-- Paredes creme, com estuque mate e relevo subtil. -->
+      <!-- Paredes  -->
       <a-plane position="10 5.5 -23.8" width="20" height="11"
         material="color: #eee5d4; roughness: 0.92; metalness: 0" plaster="repeat: 10 5.5"
         shadow="cast: false; receive: true"></a-plane>
@@ -201,7 +204,7 @@
 
       
 
-      <!-- Luz ambiente suave e plafon visível no teto. -->
+      <!-- Luz de teto e iluminação ambiente -->
       <a-light type="ambient" color="#fff3e3" intensity="0.45"></a-light>
       <a-cylinder position="8.5 10.88 -11.9" radius="1.1" height="0.18"
         material="color: #e3d9c9; roughness: 0.8; metalness: 0"></a-cylinder>
@@ -228,7 +231,6 @@
 
 
       <!-- Câmara para o utilizador navegar na sala -->
-      <!-- Limites de visão ajustados à sala para melhorar a precisão de profundidade. -->
       <!-- O rig desloca o jogador e os comandos sem contrariar o tracking VR. -->
       <a-entity id="player-rig" position="8 0 -11.9" player-controls>
         <a-camera id="player-camera" rotation="0 90 0" near="0.1" far="80"
