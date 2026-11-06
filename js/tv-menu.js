@@ -16,13 +16,13 @@ AFRAME.registerComponent('tv-menu', {
       {
         type: 'video',
         title: 'Video 1',
-        thumbnail: 'videos/video1.mp4',
+        thumbnail: 'images/video1.png',
         source: 'videos/video1.mp4'
       },
       {
         type: 'video',
         title: 'Video 2',
-        thumbnail: 'videos/video2.mp4',
+        thumbnail: 'images/video2.png',
         source: 'videos/video2.mp4'
       }
     ];
@@ -117,7 +117,11 @@ AFRAME.registerComponent('tv-menu', {
     if (action === 'open') return this.view === 'menu';
     if (action === 'back') return this.view === 'content';
 
-    return action === 'previous' || action === 'next';
+    if (action === 'previous' || action === 'next') {
+      return this.view === 'menu';
+    }
+
+    return false;
   },
 
   execute: function (action) {
@@ -185,29 +189,54 @@ AFRAME.registerComponent('tv-menu', {
     this.caption.setAttribute('value', item.title);
 
     if (item.type === 'image') {
+      // Remover a superfície anterior e o respetivo material.
+      this.preview.remove();
+
+      // Cada fotografia recebe uma superfície nova.
+      this.preview = document.createElement('a-image');
+      this.preview.setAttribute('position', '0 0.15 0.04');
+      this.preview.setAttribute('width', '7.6');
+      this.preview.setAttribute('height', '3.8');
       this.preview.setAttribute('src', item.source);
-      this.preview.setAttribute('visible', true);
+
+      this.el.appendChild(this.preview);
       return;
     }
 
     if (item.type === 'video') {
-      const video = document.querySelector(item.source);
+      // Procurar o player criado no HTML.
+      const video = document.querySelector('#tv-player');
+
       if (!video || video.tagName !== 'VIDEO') {
         this.caption.setAttribute('value', 'Video nao encontrado');
         return;
       }
 
+      // Usar o caminho definido em this.items.
+      if (video.getAttribute('src') !== item.source) {
+        video.setAttribute('src', item.source);
+        video.load();
+      }
+
       this.currentVideo = video;
-      this.videoPlane.setAttribute('src', item.source);
+
+      // A superfície 3D mostra o conteúdo deste player.
+      this.videoPlane.setAttribute('src', '#tv-player');
       this.videoPlane.setAttribute('visible', true);
+
       const request = this.playRequest;
 
-      // Executado no clique do rato ou no gatilho do comando VR.
       video.play().catch(error => {
         if (request !== this.playRequest) return;
-        this.caption.setAttribute('value', 'Nao foi possivel reproduzir o video');
+
+        this.caption.setAttribute(
+          'value',
+          'Nao foi possivel reproduzir o video'
+        );
+
         console.error('Erro ao reproduzir:', error);
       });
+
       return;
     }
 
